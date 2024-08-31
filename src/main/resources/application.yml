@@ -3,4 +3,4 @@ spring:
     name: match-maker-bot
 
 discord:
-  token: "token"
+  token: ${DISCORD_TOKEN}
