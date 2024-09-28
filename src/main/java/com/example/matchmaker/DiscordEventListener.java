@@ -4,6 +4,7 @@ import com.example.matchmaker.DiscordConfiguration.Constants;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 import lombok.extern.slf4j.Slf4j;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.GuildVoiceState;
@@ -15,7 +16,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 @Slf4j
 public class DiscordEventListener extends ListenerAdapter {
 
-  public static final int SHUFFLE_COUNT = 3;
+  public static final int SHUFFLE_COUNT = 100;
 
   @Override
   public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
@@ -47,13 +48,33 @@ public class DiscordEventListener extends ListenerAdapter {
       Collections.shuffle(members);
     }
 
-    for (int i = 0; i < members.size(); i++) {
-      Member member = members.get(i);
-      if (i % 2 == 0) {
-        guild.moveVoiceMember(member, voiceChannels.get(0)).queue();
+    Random random = new Random();
+    List<Member> redTeams = new ArrayList<>();
+    List<Member> blueTeams = new ArrayList<>();
+    int totalMembers = members.size();
+    int limitSize = totalMembers / 2;
+    while (!members.isEmpty()) {
+      Member member = members.getFirst();
+      int randomNumber = random.nextInt(1000);
+      if (randomNumber % 2 == 0 && redTeams.size() < limitSize) {
+        guild.moveVoiceMember(member, voiceChannels.getFirst()).queue();
+        redTeams.add(member);
+        members.removeFirst();
         continue;
       }
+
+      if (redTeams.size() >= limitSize) {
+        for (int i = 0; i < members.size(); i++) {
+          Member blueTeam = members.getFirst();
+          guild.moveVoiceMember(blueTeam, voiceChannels.get(1)).queue();
+          blueTeams.add(blueTeam);
+          members.removeFirst();
+        }
+      }
+
       guild.moveVoiceMember(member, voiceChannels.get(1)).queue();
+      blueTeams.add(member);
+      members.removeFirst();
     }
 
     event.reply("팀 나누기가 완료되었습니다.").queue();
