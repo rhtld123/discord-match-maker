@@ -11,12 +11,35 @@ import net.dv8tion.jda.api.entities.GuildVoiceState;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.channel.concrete.VoiceChannel;
 import net.dv8tion.jda.api.events.interaction.command.SlashCommandInteractionEvent;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 @Slf4j
 public class DiscordEventListener extends ListenerAdapter {
 
-  public static final int SHUFFLE_COUNT = 100;
+  public static final int SHUFFLE_COUNT = 1000;
+
+  @Override
+  public void onMessageReceived(MessageReceivedEvent event) {
+    String content = event.getMessage().getContentDisplay();
+    if ("?집결".equals(content)) {
+      Guild guild = event.getGuild();
+      List<VoiceChannel> voiceChannels = guild.getVoiceChannels();
+
+      if (voiceChannels.size() < 2) {
+        event.getChannel().sendMessage("음성 채널을 최소 2개 이상 생성해 주세요.").queue();
+        return;
+      }
+
+      List<Member> members = voiceChannels.get(1).getMembers();
+
+      for (Member member : members) {
+        guild.moveVoiceMember(member, voiceChannels.getFirst()).queue();
+      }
+
+      event.getChannel().sendMessage("집결이 완료되었습니다.").queue();
+    }
+  }
 
   @Override
   public void onSlashCommandInteraction(SlashCommandInteractionEvent event) {
@@ -43,38 +66,19 @@ public class DiscordEventListener extends ListenerAdapter {
     }
     VoiceChannel authorVoiceChannel = guild.getVoiceChannelById(voiceState.getChannel().getId());
     List<Member> members = new ArrayList<>(authorVoiceChannel.getMembers());
-
     for (int i = 0; i < SHUFFLE_COUNT; i++) {
-      Collections.shuffle(members);
+      long seed = System.nanoTime();
+      Random random = new Random(seed);
+      Collections.shuffle(members, random);
     }
 
-    Random random = new Random();
-    List<Member> redTeams = new ArrayList<>();
-    List<Member> blueTeams = new ArrayList<>();
-    int totalMembers = members.size();
-    int limitSize = totalMembers / 2;
-    while (!members.isEmpty()) {
-      Member member = members.getFirst();
-      int randomNumber = random.nextInt(1000);
-      if (randomNumber % 2 == 0 && redTeams.size() < limitSize) {
-        guild.moveVoiceMember(member, voiceChannels.getFirst()).queue();
-        redTeams.add(member);
-        members.removeFirst();
+    for (int i = 0; i < members.size(); i++) {
+      Member member = members.get(i);
+      if (i % 2 == 0) {
+        guild.moveVoiceMember(member, voiceChannels.get(0)).queue();
         continue;
       }
-
-      if (redTeams.size() >= limitSize) {
-        for (int i = 0; i < members.size(); i++) {
-          Member blueTeam = members.getFirst();
-          guild.moveVoiceMember(blueTeam, voiceChannels.get(1)).queue();
-          blueTeams.add(blueTeam);
-          members.removeFirst();
-        }
-      }
-
       guild.moveVoiceMember(member, voiceChannels.get(1)).queue();
-      blueTeams.add(member);
-      members.removeFirst();
     }
 
     event.reply("팀 나누기가 완료되었습니다.").queue();
